@@ -1,0 +1,99 @@
+#include <Servo.h>
+
+// Joystick Settings
+static const int JS_CENTER_0 = 512; // Analog reading at center, 0-1023
+static const int JS_CENTER_1 = 512;
+static const int JS_CENTER_2 = 512;
+static const int JS_CENTER_3 = 512;
+static const int JS_RANGE_0 = 511; // Analog range, 0-1023
+static const int JS_RANGE_1 = 511; // Set to 128 for Parallax joystick
+static const int JS_RANGE_2 = 511;
+static const int JS_RANGE_3 = 511;
+static const int JS_DIR_0 = 1; // +1 or -1
+static const int JS_DIR_1 = 1;
+static const int JS_DIR_2 = 1;
+static const int JS_DIR_3 = 1;
+
+// ESC/Thruster Settings
+static const int MAX_FWD_REV_THROTTLE = 400; // Value between 0-400
+static const int MAX_TURN_THROTTLE = 400; // Value between 0-400
+static const int MAX_VERTICAL_THROTTLE = 400;// Value between 0-400
+static const int MAX_VERTICAL2_THROTTLE = 400;
+static const int CENTER_THROTTLE = 1500;
+
+// Arduino Pins
+static const byte JS_ADC_0 = A0;
+static const byte JS_ADC_1 = A1;
+static const byte JS_ADC_2 = A2;
+static const byte JS_ADC_3 = A3;
+static const byte THRUSTER_LEFT = 9;
+static const byte THRUSTER_RIGHT = 10;
+static const byte THRUSTER_VERTICAL = 11;
+static const byte THRUSTER_VERTICAL2 = 6;
+
+// Servos
+Servo thrusterLeft;
+Servo thrusterRight;
+Servo thrusterVertical;
+Servo thrusterVertical2;
+
+void setup() {
+// Set up serial port to print inputs and outputs
+Serial.begin(38400);
+
+// Set up Arduino pins to send servo signals to ESCs
+thrusterLeft.attach(THRUSTER_LEFT);
+thrusterRight.attach(THRUSTER_RIGHT);
+thrusterVertical.attach(THRUSTER_VERTICAL);
+thrusterVertical2.attach(THRUSTER_VERTICAL2);
+
+// Set output signal to 1500 microsecond pulse (stopped command)
+thrusterLeft.writeMicroseconds(CENTER_THROTTLE);
+thrusterRight.writeMicroseconds(CENTER_THROTTLE);
+thrusterVertical.writeMicroseconds(CENTER_THROTTLE);
+thrusterVertical2.writeMicroseconds(CENTER_THROTTLE);
+
+// Delay to allow time for ESCs to initialize
+delay(7000);
+}
+
+void loop() {
+// Read the joysticks and use the Arduino "map" function to map the raw values
+// to the desired output commands.
+int forwardCommand    = map(analogRead(JS_ADC_0), // Read raw joystick value
+                              JS_CENTER_0-JS_DIR_0*JS_RANGE_0, // Joystick low value
+                              JS_CENTER_0+JS_DIR_0*JS_RANGE_0, // Joystick high value
+                              -MAX_FWD_REV_THROTTLE, // Command low value
+                              MAX_FWD_REV_THROTTLE); // Command high value
+int turnCommand       = map(analogRead(JS_ADC_1), // Read raw joystick value
+                             JS_CENTER_1-JS_DIR_1*JS_RANGE_1, // Joystick low value
+                              JS_CENTER_1+JS_DIR_1*JS_RANGE_1, // Joystick high value
+-MAX_TURN_THROTTLE, // Command low value
+MAX_TURN_THROTTLE); // Command high value
+int verticalCommand   = map(analogRead(JS_ADC_2), // Read raw joystick value
+JS_CENTER_2-JS_DIR_2*JS_RANGE_2, // Joystick low value
+JS_CENTER_2+JS_DIR_2*JS_RANGE_2, // Joystick high value
+-MAX_VERTICAL_THROTTLE, // Command low value
+MAX_VERTICAL_THROTTLE); // Command high value
+int vertical2Command   = map(analogRead(JS_ADC_3), // Read raw joystick value
+JS_CENTER_3-JS_DIR_3*JS_RANGE_3, // Joystick low value
+JS_CENTER_3+JS_DIR_3*JS_RANGE_3, // Joystick high value
+-MAX_VERTICAL2_THROTTLE, // Command low value
+MAX_VERTICAL2_THROTTLE); // Command high value
+
+// Combine the "stopped" command with forward, turn, and vertical and send
+// to the ESCs.
+thrusterLeft.writeMicroseconds(CENTER_THROTTLE+forwardCommand+turnCommand);
+thrusterRight.writeMicroseconds(CENTER_THROTTLE+forwardCommand-turnCommand);
+thrusterVertical.writeMicroseconds(CENTER_THROTTLE+verticalCommand);
+thrusterVertical2.writeMicroseconds(CENTER_THROTTLE+vertical2Command);
+
+// Output via serial
+Serial.print("Fwd: "); Serial.print(forwardCommand);
+Serial.print("Turn: "); Serial.print(turnCommand);
+Serial.print("Vert: "); Serial.print(verticalCommand);
+Serial.println("Vert2: "); Serial.print(vertical2Command);
+
+// Delay 1/10th of a second. No need to update at super fast rates.
+delay(100);
+}
